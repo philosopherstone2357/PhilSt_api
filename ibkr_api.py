@@ -155,7 +155,9 @@ class IbkrApi(EWrapper, EClient):
         for tradingRange in tradingRanges:
             closedKeyword = False
 
-            if "CLOSED" in tradingRange:
+            if len(tradingRange) == 0: # string is empty
+                pass 
+            elif "CLOSED" in tradingRange:
                 closedKeyword = True
             else:
                 startTime, endTime = tradingRange.split('-')
