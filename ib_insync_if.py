@@ -34,22 +34,26 @@ class IbInsyncApi(IB):
 
         self.reqId = 10000
         self.orderId = 1
+        self.prevSysTime = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.CurrTime = None
 
     def connect(self):
         return super().connect(self.host, self.port, self.clientId)
-    
-    #def connect(self, timeout):
-    #    return super().connect(self.host, self.port, self.clientId, timeout=timeout)
 
     def getCurrTime(self):
+        """Get current time from IBKR server in US/Eastern timezone.
+        TWS api has a limitation of no more than two requests per second.
+        Hence, a time cache is used to prevent overloading the server.
+        """
         # Current time is YYYY-MM-DD HH:mm:ss+zz:zz in datetime.datetime format
-        currTime = super().reqCurrentTime()
-        systime.sleep(1)
+        if datetime.datetime.now(tz=datetime.timezone.utc) - self.prevSysTime > datetime.timedelta(seconds=1) or self.CurrTime is None:
+            self.prevSysTime = datetime.datetime.now(tz=datetime.timezone.utc)
+            self.CurrTime = self.reqCurrentTime()
 
         # Convert to our conventional US/Eastern trading time
-        baseTimeZone = currTime.utcoffset()
+        baseTimeZone = self.CurrTime.utcoffset()
         usTimeZone = datetime.timedelta(hours=-5)
-        currTimeUs = currTime + usTimeZone - baseTimeZone
+        currTimeUs = self.CurrTime + usTimeZone - baseTimeZone
         currTimeUsStr = currTimeUs.strftime("%Y%m%d %H:%M:%S US/Eastern")
 
         return currTimeUsStr
