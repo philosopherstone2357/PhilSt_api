@@ -10,9 +10,7 @@ https://ib-insync.readthedocs.io/api.html
 
 from ib_insync import *
 
-import time as systime
 import datetime
-import asyncio
 
 IBKR_PERIOD_MAPPING = {
     "5m"  :  "5 mins",
@@ -84,7 +82,7 @@ class IbInsyncApi(IB):
         return: bool (Yes, No)
         '''
         # request for contract details
-        contractDetail =  super().reqContractDetails(contract)
+        contractDetail = super().reqContractDetails(contract)
 
         # Note that tradingHours format:
         # "%Y%m%d:%H%M-%Y%m%d:%H%M;%Y%m%d:%H%M-%Y%m%d:%H%M:%Y%m%d:%H%M:CLOSED" Format length last for a week
@@ -100,7 +98,7 @@ class IbInsyncApi(IB):
             closedKeyword = False
 
             if len(tradingRange) == 0: # string is empty
-                pass
+                continue
             if "CLOSED" in tradingRange:
                 closedKeyword = True
             else:
