@@ -113,23 +113,24 @@ class IbInsyncApi(IB):
                     return 1
         return 0
 
-    def getHistoricalData(self, contract:Contract, period, duration):
+    def getHistoricalData(self, period, duration, contract:Contract = None):
         '''
         Get Historical Data function by calling reqHistorical api
 
         Args:
-            contract    (symbol contract)
             period      (candle stick pattern)
             duration    (Duration for the candle)
+            contract    (symbol contract) - default to self.contract
 
         return
             Dataframe of the symbol historical data
         '''
+        if contract is None:
+            contract = self.contract
         rth = self.isRegTradingHour(contract)
         currTime = self.getCurrTime()
         bars = self.reqHistoricalData(contract, currTime, duration, IBKR_PERIOD_MAPPING[period], 'BID', rth, 1, False, [])
         dataframe = util.df(bars)
-        systime.sleep(3)
 
         if dataframe.empty:
             print("[Warning]: getHistoricalData() Historical dataframe is empty.")
