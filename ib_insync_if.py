@@ -10,9 +10,7 @@ https://ib-insync.readthedocs.io/api.html
 
 from ib_insync import *
 
-import time as systime
 import datetime
-import asyncio
 
 IBKR_PERIOD_MAPPING = {
     "5m"  :  "5 mins",
@@ -34,22 +32,26 @@ class IbInsyncApi(IB):
 
         self.reqId = 10000
         self.orderId = 1
+        self.prevSysTime = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.CurrTime = None
 
     def connect(self):
         return super().connect(self.host, self.port, self.clientId)
-    
-    #def connect(self, timeout):
-    #    return super().connect(self.host, self.port, self.clientId, timeout=timeout)
 
     def getCurrTime(self):
+        """Get current time from IBKR server in US/Eastern timezone.
+        TWS api has a limitation of no more than two requests per second.
+        Hence, a time cache is used to prevent overloading the server.
+        """
         # Current time is YYYY-MM-DD HH:mm:ss+zz:zz in datetime.datetime format
-        currTime = super().reqCurrentTime()
-        systime.sleep(1)
+        if datetime.datetime.now(tz=datetime.timezone.utc) - self.prevSysTime > datetime.timedelta(seconds=1) or self.CurrTime is None:
+            self.prevSysTime = datetime.datetime.now(tz=datetime.timezone.utc)
+            self.CurrTime = self.reqCurrentTime()
 
         # Convert to our conventional US/Eastern trading time
-        baseTimeZone = currTime.utcoffset()
+        baseTimeZone = self.CurrTime.utcoffset()
         usTimeZone = datetime.timedelta(hours=-5)
-        currTimeUs = currTime + usTimeZone - baseTimeZone
+        currTimeUs = self.CurrTime + usTimeZone - baseTimeZone
         currTimeUsStr = currTimeUs.strftime("%Y%m%d %H:%M:%S US/Eastern")
 
         return currTimeUsStr
@@ -80,7 +82,7 @@ class IbInsyncApi(IB):
         return: bool (Yes, No)
         '''
         # request for contract details
-        contractDetail =  super().reqContractDetails(contract)
+        contractDetail = super().reqContractDetails(contract)
 
         # Note that tradingHours format:
         # "%Y%m%d:%H%M-%Y%m%d:%H%M;%Y%m%d:%H%M-%Y%m%d:%H%M:%Y%m%d:%H%M:CLOSED" Format length last for a week
@@ -96,7 +98,7 @@ class IbInsyncApi(IB):
             closedKeyword = False
 
             if len(tradingRange) == 0: # string is empty
-                pass
+                continue
             if "CLOSED" in tradingRange:
                 closedKeyword = True
             else:
@@ -109,23 +111,24 @@ class IbInsyncApi(IB):
                     return 1
         return 0
 
-    def getHistoricalData(self, contract:Contract, period, duration):
+    def getHistoricalData(self, period, duration, contract:Contract = None):
         '''
         Get Historical Data function by calling reqHistorical api
 
         Args:
-            contract    (symbol contract)
             period      (candle stick pattern)
             duration    (Duration for the candle)
+            contract    (symbol contract) - default to self.contract
 
         return
             Dataframe of the symbol historical data
         '''
+        if contract is None:
+            contract = self.contract
         rth = self.isRegTradingHour(contract)
         currTime = self.getCurrTime()
         bars = self.reqHistoricalData(contract, currTime, duration, IBKR_PERIOD_MAPPING[period], 'BID', rth, 1, False, [])
         dataframe = util.df(bars)
-        systime.sleep(3)
 
         if dataframe.empty:
             print("[Warning]: getHistoricalData() Historical dataframe is empty.")
