@@ -9,7 +9,7 @@ https://ib-insync.readthedocs.io/api.html
 """
 
 from ib_insync import *
-
+import pandas as pd
 import datetime
 
 IBKR_PERIOD_MAPPING = {
@@ -27,8 +27,6 @@ class IbInsyncApi(IB):
         self.host = host
         self.port = port
         self.clientId = clientId
-
-        self.contract = None
 
         self.reqId = 10000
         self.orderId = 1
@@ -135,7 +133,7 @@ class IbInsyncApi(IB):
 
         return dataframe
 
-    def getCashVal(self) -> list:
+    def getAccountSummary(self) -> list:
         '''
         Portfolio viewing API: get portfolio summary only using tags as input via .reqAccountSummary with 
         Parameters
@@ -152,3 +150,39 @@ class IbInsyncApi(IB):
         except Exception as e:
             print(e)
         return accSum
+
+    def getAccountSummaryDf(self) -> list:
+        '''
+        get account summary in dataframe
+        '''
+        accSum = self.getAccountSummary()
+        # Convert AccountValue objects to dictionaries
+        accSumDicts = [{'account': av.account,
+                        'tag': av.tag,
+                        'value': av.value,
+                        'currency': av.currency,
+                        'modelCode': av.modelCode} for av in accSum]
+        accSumDf = pd.DataFrame(accSumDicts)
+        assert accSumDf is not None, "accSumDf is empty"
+        return accSumDf
+    
+    def getCashVal(self) -> float:
+        '''
+        get current cash value, how much available to buy
+        '''
+        accsum = self.getAccountSummary()
+        cashValue = next((value for value in accsum if value.tag == 'AvailableFunds'), None)
+
+        assert cashValue is not None, "Total Cash Value not found in the list."
+        return cashValue
+
+    def getTotalCashVal(self) -> float:
+        '''
+        get total portfolio value, how much we have
+        '''
+        # Finding AccountValue with tag equal to 'TotalCashValue'
+        accsum = self.getAccountSummary()
+        totalCashValue = next((value for value in accsum if value.tag == 'TotalCashValue'), None)
+
+        assert totalCashValue is not None, "Total Cash Value not found in the list."
+        return totalCashValue
