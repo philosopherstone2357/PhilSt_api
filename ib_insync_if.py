@@ -171,7 +171,7 @@ class IbInsyncApi(IB):
         get current cash value, how much available to buy
         '''
         accsum = self.getAccountSummary()
-        cashValue = next((value for value in accsum if value.tag == 'AvailableFunds'), None)
+        cashValue = float(next((value for value in accsum if value.tag == 'AvailableFunds'), None).value)
 
         assert cashValue is not None, "Total Cash Value not found in the list."
         return cashValue
@@ -182,7 +182,53 @@ class IbInsyncApi(IB):
         '''
         # Finding AccountValue with tag equal to 'TotalCashValue'
         accsum = self.getAccountSummary()
-        totalCashValue = next((value for value in accsum if value.tag == 'TotalCashValue'), None)
+        totalCashValue = float(next((value for value in accsum if value.tag == 'TotalCashValue'), None).value)
 
         assert totalCashValue is not None, "Total Cash Value not found in the list."
         return totalCashValue
+    
+    def bracketOrder(
+            self, action: str, quantity: float,
+            limitPrice: float, takeProfitPrice: float,
+            stopLossPrice: float, transmit : bool, **kwargs) -> BracketOrder:
+        """
+        ###############################################
+         Override parent class bracket order function 
+        ###############################################
+        Create a limit order that is bracketed by a take-profit order and
+        a stop-loss order. Submit the bracket like:
+
+        .. code-block:: python
+
+            for o in bracket:
+                ib.placeOrder(contract, o)
+
+        https://interactivebrokers.github.io/tws-api/bracket_order.html
+
+        Args:
+            action: 'BUY' or 'SELL'.
+            quantity: Size of order.
+            limitPrice: Limit price of entry order.
+            takeProfitPrice: Limit price of profit order.
+            stopLossPrice: Stop price of loss order.
+        """
+        assert action in ('BUY', 'SELL')
+        reverseAction = 'BUY' if action == 'SELL' else 'SELL'
+        parent = LimitOrder(
+            action, quantity, limitPrice,
+            orderId=self.client.getReqId(),
+            transmit=transmit,
+            **kwargs)
+        takeProfit = LimitOrder(
+            reverseAction, quantity, takeProfitPrice,
+            orderId=self.client.getReqId(),
+            transmit=transmit,
+            parentId=parent.orderId,
+            **kwargs)
+        stopLoss = StopOrder(
+            reverseAction, quantity, stopLossPrice,
+            orderId=self.client.getReqId(),
+            transmit=transmit,
+            parentId=parent.orderId,
+            **kwargs)
+        return BracketOrder(parent, takeProfit, stopLoss)
