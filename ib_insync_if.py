@@ -32,8 +32,10 @@ class IbInsyncApi(IB):
         self.orderId = 1
         self.prevSysTime = datetime.datetime.now(tz=datetime.timezone.utc)
         self.CurrTime = None
+        self.connectAttempt = 0
 
     def connect(self):
+        self.connectAttempt += 1
         return super().connect(self.host, self.port, self.clientId)
 
     def getCurrTime(self):
