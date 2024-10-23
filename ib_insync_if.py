@@ -33,11 +33,7 @@ class IbInsyncApi(IB):
         self.prevSysTime = datetime.datetime.now(tz=datetime.timezone.utc)
         self.CurrTime = None
 
-    # async def connectAsync(self, timeout: float | None = 4, readonly: bool = False, account: str = ''):
-    #     return await super().connectAsync(self.host, self.port, self.clientId, timeout, readonly, account)
-
     def connect(self):
-        print("Connecting...")
         return super().connect(self.host, self.port, self.clientId)
 
     def getCurrTime(self):
@@ -66,6 +62,7 @@ class IbInsyncApi(IB):
 
     def createContract(self, symbol, secType, exchange, currency):
         '''
+        !! DEPRECIATED function !! (We are no more creating contract using the api interface)
         Create trade contract for corresponded symbol
         '''
         self.contract = Contract()
@@ -112,30 +109,6 @@ class IbInsyncApi(IB):
                 if not closedKeyword and startTime <= currTime <= endTime:
                     return 1
         return 0
-
-    async def getHistoricalDataAsync(self, period, duration, contract:Contract = None):
-        '''
-        Get Historical Data function by calling reqHistorical api
-
-        Args:
-            period      (candle stick pattern)
-            duration    (Duration for the candle)
-            contract    (symbol contract) - default to self.contract
-
-        return
-            Dataframe of the symbol historical data
-        '''
-        if contract is None:
-            contract = self.contract
-        rth = self.isRegTradingHour(contract)
-        currTime = self.getCurrTime()
-        bars = self.reqHistoricalData(contract, currTime, duration, IBKR_PERIOD_MAPPING[period], 'BID', rth, 1, False, [])
-        dataframe = util.df(bars)
-
-        if dataframe.empty:
-            print("[Warning]: getHistoricalData() Historical dataframe is empty.")
-
-        return dataframe
 
     def getHistoricalData(self, period, duration, contract:Contract = None):
         '''
