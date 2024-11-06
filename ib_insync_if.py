@@ -132,7 +132,7 @@ class IbInsyncApi(IB):
         if dataframe.empty:
             print("[Warning]: getHistoricalData() Historical dataframe is empty.")
 
-        return dataframe
+        return pd.DataFrame(dataframe)
 
     def getAccountSummary(self) -> list:
         '''
