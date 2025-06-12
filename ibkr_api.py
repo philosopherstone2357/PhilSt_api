@@ -26,19 +26,20 @@ IBKR_PERIOD_MAPPING = {
 class IbkrApi(EWrapper, EClient):
     def __init__(self, host, port, clientId):
         EClient.__init__(self, self)
+        # Conection parameters
         self.host = host
         self.port = port
         self.clientId = clientId
 
-        # List of temporary variables
-        # self.reqId = ibkrApi.reqIds(-1) + 10000
-        # self.orderId = ibkrApi.reqIds(-1) 
+        # Request and Order IDs
         self.reqId = 10000
         self.orderId = 1
-        self.contract = None
-        self.histDataTemp = []
-        self.conDetTemp = Contract()
-        self.serverTime = None
+
+        # Variables for storing temporary data
+        self.contract_list =   []
+        self.hist_data_temp =  []
+        self.conDetTemp =      None
+        self.serverTime =      None
         self.accountDataTemp = []
        
     def connect(self):
@@ -49,9 +50,6 @@ class IbkrApi(EWrapper, EClient):
         self.port = port
         self.clientId = clientId
         self.connect()
-
-    def resetHistDataTemp(self) -> None:
-        self.histDataTemp = []
     
     def resetAccountDataTemp(self) -> None:
         print("reset account data temp")
@@ -76,13 +74,26 @@ class IbkrApi(EWrapper, EClient):
         self.reqId = (self.reqId + 1) % 20000  # Reset to 10000 if it exceeds 19999
         return current_id
 
-    def createContract(self, symbol, secType, exchange, currency):
-        self.contract = Contract()
-        self.contract.symbol = symbol
-        self.contract.secType = secType
-        self.contract.exchange = exchange
-        self.contract.currency = currency
-        return self.contract
+    def create_contract(self, symbol, sec_type, exchange, currency) -> Contract:
+        """
+        Create trade contract for corresponded symbol
+        Args:
+        symbol:   str, e.g. "AAPL"
+        sec_type:  str, e.g. "STK" for stock, "FUT" for futures
+        exchange: str, e.g. "SMART" for smart routing, "NYSE" for New York Stock Exchange
+        currency: str, e.g. "USD" for US Dollar, "EUR" for Euro
+
+        Returns:
+        contract: Contract object with specified parameters
+        """
+        contract = Contract()
+        contract.symbol = symbol
+        contract.secType = sec_type
+        contract.exchange = exchange
+        contract.currency = currency
+        self.contract_list.append(contract)
+
+        return contract
 
     #! [bracket]
     def BracketOrder(self, parentOrderId:int, action:str, quantity:float, 
@@ -90,12 +101,12 @@ class IbkrApi(EWrapper, EClient):
                      stopLossPrice:float):
         """ 
         Args:   
-        parentOrderId: generated from api.get_order_id()
-        action: BUY or SELL
-        quantity: number of positions 
-        limitPrice: float
+        parentOrderId:        generated from api.get_order_id()
+        action:               BUY or SELL
+        quantity:             number of positions 
+        limitPrice:           float
         takeProfitLimitPrice: float
-        stopLossPrice: float
+        stopLossPrice:        float
            
         Description: 
         #/ Bracket orders are designed to help limit your loss and lock in a profit by "bracketing" an order with two opposite-side orders. 
@@ -108,7 +119,6 @@ class IbkrApi(EWrapper, EClient):
         #This will be our main or "parent" order
         parent = Order()
         parent.orderId = parentOrderId
-        print(1)
         parent.action = action
         parent.orderType = "LMT"
         parent.totalQuantity = quantity
@@ -140,22 +150,24 @@ class IbkrApi(EWrapper, EClient):
         bracketOrder = [parent, takeProfit, stopLoss]
         return bracketOrder
 
-    def isRegTradingHour(self) -> bool:
+    def isRegTradingHour(self, contract) -> bool:
+        """
+        Check if current time is within regular trading hours for the contract.
+
+        Note that tradingHours format:
+        "%Y%m%d:%H%M-%Y%m%d:%H%M;%Y%m%d:%H%M-%Y%m%d:%H%M:%Y%m%d:%H%M:CLOSED" 
+        Format length last for a week, It is being dissected as below
+        """
         reqId = self.get_req_id()
-        # request for contract details
-        self.reqContractDetails(reqId, self.contract)
-        # time allow API to get data 
+        self.reqContractDetails(reqId, contract)
         systime.sleep(3)
         contractDetail = self.conDetTemp
-        # Note that tradingHours format:
-        # "%Y%m%d:%H%M-%Y%m%d:%H%M;%Y%m%d:%H%M-%Y%m%d:%H%M:%Y%m%d:%H%M:CLOSED" Format length last for a week
-        # It is being dissected as below
-        tradingHours = contractDetail.tradingHours
-        tradingRanges = tradingHours.split(';')
-        for tradingRange in tradingRanges:
+        tradingHours = contractDetail.tradingHours.split(';')
+
+        for tradingRange in tradingHours:
             closedKeyword = False
 
-            if len(tradingRange) == 0: # string is empty
+            if len(tradingRange) == 0:
                 pass 
             elif "CLOSED" in tradingRange:
                 closedKeyword = True
@@ -200,24 +212,37 @@ class IbkrApi(EWrapper, EClient):
         localOffsetSec = systime.mktime(localTime) - currentSysTime
         # Calculate the offset in hours
         localOffsetHr = datetime.timedelta(hours=round(localOffsetSec / 3600))
-        #ukOffset = datetime.timedelta(hours=0)  # UK is UTC+0
-        usEasternOffset = datetime.timedelta(hours=-4)  # US/Eastern is UTC-4
+        # Example: ukOffset = datetime.timedelta(hours=0)  # UK is UTC+0
+        usEasternOffset = datetime.timedelta(hours=-4)     # US/Eastern is UTC-4
         self.serverTime = datetime.datetime.fromtimestamp(time) + (usEasternOffset - localOffsetHr)
         self.serverTime = self.serverTime.strftime("%Y%m%d %H:%M:%S US/Eastern")
 
-    def getHistoricalData(self, period, duration):
-
-        self.resetHistDataTemp()
-        rth = self.isRegTradingHour()
+    def get_historical_data(self, contract, period, duration):
+        """
+        Get Historical Data function by calling reqHistorical api
+        Args:
+            contract: Contract object for the symbol
+            period: str, e.g. "5m", "1h", "1d"
+            duration: str, e.g. "1 D", "1 W", "1 M"
+        Returns:
+            hist_data_temp: list of historical data bars
+        """
+        self.reset_hist_data_temp()
+        rth = self.isRegTradingHour(contract)
         reqId = self.get_req_id()
-        #reqId updated by XL need double check
-        self.reqHistoricalData(reqId, self.contract, self.serverTime, duration, IBKR_PERIOD_MAPPING[period], 'BID', rth, 1, False, [])
+        self.reqHistoricalData(reqId, contract, self.serverTime, duration, IBKR_PERIOD_MAPPING[period], 'BID', rth, 1, False, [])
         systime.sleep(5)
 
-        return self.histDataTemp
+        return self.hist_data_temp
+
+    def reset_hist_data_temp(self) -> None:
+        self.hist_data_temp = []
 
     def historicalData(self, reqId: int, bar: BarData):
-        self.histDataTemp.append({
+        """
+        Call back function from reqHistoricalData(), User should not call this function directly.
+        """
+        self.hist_data_temp.append({
             "date": bar.date,
             "open": bar.open,
             "high": bar.high,
@@ -252,20 +277,20 @@ class IbkrApi(EWrapper, EClient):
             print(e)
             return []
 
-    # def updatePortfolio(self, contract: Contract, position: float, marketPrice: float, marketValue: float,
-    #                     averageCost: float, unrealizedPNL: float, realizedPNL: float, accountName: str):
-        '''
-        Portfolio viewing API
-        '''
-    #     try:
-    #         super().updatePortfolio(contract, position, marketPrice, marketValue,
-    #                                 averageCost, unrealizedPNL, realizedPNL, accountName)
-    #         print("UpdatePortfolio.", "Symbol:", contract.symbol, "SecType:", contract.secType, "Exchange:", contract.exchange,
-    #           "Position:", position, "MarketPrice:", marketPrice, "MarketValue:", marketValue, "AverageCost:", averageCost,
-    #           "UnrealizedPNL:", unrealizedPNL, "RealizedPNL:", realizedPNL, "AccountName:", accountName)
-    #     except Exception as e:
-    #         print(e)
-    #         return []
+    def updatePortfolio(self, contract: Contract, position: float, marketPrice: float, marketValue: float,
+                        averageCost: float, unrealizedPNL: float, realizedPNL: float, accountName: str):
+      '''
+      Portfolio viewing API
+      '''
+        try:
+            super().updatePortfolio(contract, position, marketPrice, marketValue,
+                                    averageCost, unrealizedPNL, realizedPNL, accountName)
+            print("UpdatePortfolio.", "Symbol:", contract.symbol, "SecType:", contract.secType, "Exchange:", contract.exchange,
+              "Position:", position, "MarketPrice:", marketPrice, "MarketValue:", marketValue, "AverageCost:", averageCost,
+              "UnrealizedPNL:", unrealizedPNL, "RealizedPNL:", realizedPNL, "AccountName:", accountName)
+        except Exception as e:
+            print(e)
+            return []
 
     def accountSummary(self, reqId: int, account: str, tag: str, value: str, currency: str):
         '''
@@ -296,6 +321,6 @@ class IbkrApi(EWrapper, EClient):
         super().accountDownloadEnd(accountName)
         print("AccountDownloadEnd. Account:", accountName)
 
-    def runLoop(self):
-            self.run()
-       
+    def run(self):
+        super().run()
+        systime.sleep(3)
