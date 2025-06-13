@@ -62,7 +62,9 @@ class IbkrApi(EWrapper, EClient):
         '''
         # if ibkrApi.reqIds(-1) relook into reset
         current_id = self.orderId
-        self.orderId = (self.orderId + 1) % 10000  # Reset to 1 if it exceeds 9999
+        self.orderId += 1
+        if self.orderId > 9999:
+            self.orderId = 1  # Reset to 1 if it exceeds 9999
         return current_id
 
     def get_req_id(self):
@@ -71,7 +73,9 @@ class IbkrApi(EWrapper, EClient):
         Auto reqId generator that appends +1 every time it is being called. Could use .reqIds(-1) to verify.
         '''
         current_id = self.reqId
-        self.reqId = (self.reqId + 1) % 20000  # Reset to 10000 if it exceeds 19999
+        self.reqId += 1
+        if self.reqId > 19999:
+            self.reqId = 10000  # Reset to 10000 if it exceeds 19999
         return current_id
 
     def create_contract(self, symbol, sec_type, exchange, currency) -> Contract:
@@ -279,15 +283,19 @@ class IbkrApi(EWrapper, EClient):
 
     def updatePortfolio(self, contract: Contract, position: float, marketPrice: float, marketValue: float,
                         averageCost: float, unrealizedPNL: float, realizedPNL: float, accountName: str):
-      '''
-      Portfolio viewing API
-      '''
+        """
+        Portfolio viewing API
+        """
         try:
             super().updatePortfolio(contract, position, marketPrice, marketValue,
                                     averageCost, unrealizedPNL, realizedPNL, accountName)
-            print("UpdatePortfolio.", "Symbol:", contract.symbol, "SecType:", contract.secType, "Exchange:", contract.exchange,
-              "Position:", position, "MarketPrice:", marketPrice, "MarketValue:", marketValue, "AverageCost:", averageCost,
-              "UnrealizedPNL:", unrealizedPNL, "RealizedPNL:", realizedPNL, "AccountName:", accountName)
+            print(
+                "UpdatePortfolio.", "Symbol:", contract.symbol, "SecType:", contract.secType,
+                "Exchange:", contract.exchange,
+                "Position:", position, "MarketPrice:", marketPrice, "MarketValue:", marketValue,
+                "AverageCost:", averageCost,
+                "UnrealizedPNL:", unrealizedPNL, "RealizedPNL:", realizedPNL, "AccountName:", accountName
+            )
         except Exception as e:
             print(e)
             return []
