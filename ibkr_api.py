@@ -279,15 +279,43 @@ class IbkrApi(EWrapper, EClient):
 
     def updatePortfolio(self, contract: Contract, position: float, marketPrice: float, marketValue: float,
                         averageCost: float, unrealizedPNL: float, realizedPNL: float, accountName: str):
-      '''
-      Portfolio viewing API
-      '''
+        """
+        Portfolio viewing API
+        """
         try:
-            super().updatePortfolio(contract, position, marketPrice, marketValue,
-                                    averageCost, unrealizedPNL, realizedPNL, accountName)
-            print("UpdatePortfolio.", "Symbol:", contract.symbol, "SecType:", contract.secType, "Exchange:", contract.exchange,
-              "Position:", position, "MarketPrice:", marketPrice, "MarketValue:", marketValue, "AverageCost:", averageCost,
-              "UnrealizedPNL:", unrealizedPNL, "RealizedPNL:", realizedPNL, "AccountName:", accountName)
+            super().updatePortfolio(
+                contract,
+                position,
+                marketPrice,
+                marketValue,
+                averageCost,
+                unrealizedPNL,
+                realizedPNL,
+                accountName,
+            )
+            print(
+                "UpdatePortfolio.",
+                "Symbol:",
+                contract.symbol,
+                "SecType:",
+                contract.secType,
+                "Exchange:",
+                contract.exchange,
+                "Position:",
+                position,
+                "MarketPrice:",
+                marketPrice,
+                "MarketValue:",
+                marketValue,
+                "AverageCost:",
+                averageCost,
+                "UnrealizedPNL:",
+                unrealizedPNL,
+                "RealizedPNL:",
+                realizedPNL,
+                "AccountName:",
+                accountName,
+            )
         except Exception as e:
             print(e)
             return []
