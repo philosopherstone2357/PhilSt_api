@@ -1,6 +1,6 @@
-# Philsopher Stone API
+# Philosopher Stone API
 
-This reposity contains API wrappers for access and interacting stock data.
+This repository contains API wrappers for access and interacting stock data.
 
 1. API wrapper for ib_insync
 2. API wrapper for ib_api
