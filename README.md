@@ -4,6 +4,7 @@ This repository contains API wrappers for accessing and interacting with stock d
 
 1. API wrapper for `ib_insync`
 2. API wrapper for `ib_api`
+3. API wrapper for `polygon_api`
 
 ## Examples
 
@@ -14,7 +15,7 @@ Example scripts demonstrating how to use the two wrappers are available in the
 Install dependencies:
 
 ```bash
-pip install ib_insync ibapi pandas
+pip install ib_insync ibapi pandas requests
 ```
 
 Run the examples:
@@ -22,7 +23,11 @@ Run the examples:
 ```bash
 python examples/example_ib_insync.py
 python examples/example_ibkr_api.py
+python examples/example_polygon_api.py
 ```
+
+The `PolygonApi` example expects an API key set in the environment variable
+`POLYGON_API_KEY`.
 
 ## Running tests
 
